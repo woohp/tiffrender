@@ -1,71 +1,181 @@
 #include <memory>
 #include <sstream>
+#include <iostream>
 #include <tiffio.h>
 #include <tiffio.hxx>
+#include <pybind11/pybind11.h>
+using namespace std;
+namespace py = pybind11;
 
-extern "C"
+
+class Tiff
 {
-
-void* load_stream_from_bytes(const char* file_data, int file_data_length)
-{
-    std::stringstream* stream = new std::stringstream();
-    stream->write(file_data, file_data_length);
-    return stream;
-}
-
-void* load_tiff_from_stream(void* stream)
-{
-    TIFFSetWarningHandler(nullptr);
-    return TIFFStreamOpen("file.tiff", static_cast<std::istream*>(stream));
-}
-
-void* load_tiff_from_file(const char* filename)
-{
-    TIFFSetWarningHandler(nullptr);
-    return TIFFOpen(filename, "r");
-}
-
-void delete_tiff(void* doc)
-{
-    TIFFClose(reinterpret_cast<TIFF*>(doc));
-}
-
-void delete_stream(void* stream)
-{
-    delete reinterpret_cast<std::stringstream*>(stream);
-}
-
-int num_pages(void* _tiff)
-{
-    auto tiff = reinterpret_cast<TIFF*>(_tiff);
-    int count = 0;
-
-    do
+public:
+    static Tiff frombytes(py::buffer bytes)
     {
-        count++;
-    } while (TIFFReadDirectory(tiff));
+        TIFFSetWarningHandler(nullptr);
+        py::buffer_info info = bytes.request();
 
-    return count;
-}
+        auto sstream = new stringstream;
+        sstream->write(reinterpret_cast<char*>(info.ptr), info.size);
+        auto document = TIFFStreamOpen("file.tiff", static_cast<std::istream*>(sstream));
+        if (!document)
+            throw std::invalid_argument("invalid tiff file");
 
-const uint32_t* render_page(void* _tiff, int index, int* height, int* width, float* dpix, float* dpiy)
+        return Tiff(document, move(sstream));
+    }
+
+    static Tiff fromfile(const string& filename)
+    {
+        TIFFSetWarningHandler(nullptr);
+        auto document = TIFFOpen(filename.c_str(), "r");
+        if (!document)
+            throw std::invalid_argument("invalid tiff file");
+
+        return Tiff(document, nullptr);
+    }
+
+    Tiff(const Tiff& other) = delete;
+
+    Tiff(Tiff&& other):
+        doc(move(other.doc)),
+        num_pages(other.num_pages),
+        sstream(move(other.sstream))
+    {
+        other.num_pages = 0;
+        other.doc = nullptr;
+    }
+
+    Tiff& __enter__()
+    {
+        return *this;
+    }
+
+    void __exit__(py::object, py::object, py::object)
+    {
+        this->doc.reset();
+        this->sstream.reset();
+        this->num_pages = 0;
+    }
+
+    py::object render_page(int page_index)
+    {
+        if (!this->doc)
+            throw std::runtime_error("Invalid tiff document.");
+
+        if (page_index < 0 || page_index >= this->num_pages)
+            throw std::invalid_argument("page index out of range");
+
+        auto doc = this->doc.get();
+
+        TIFFSetDirectory(doc, page_index);
+
+        int width, height;
+        float dpix, dpiy;
+        TIFFGetField(doc, TIFFTAG_IMAGEWIDTH, &width);
+        TIFFGetField(doc, TIFFTAG_IMAGELENGTH, &height);
+        TIFFGetField(doc, TIFFTAG_XRESOLUTION, &dpix);
+        TIFFGetField(doc, TIFFTAG_YRESOLUTION, &dpiy);
+
+        auto image_data = new uint32_t[width * height];
+        TIFFReadRGBAImageOriented(doc, width, height, image_data, 1, 0);
+        auto size = make_pair(width, height);
+        py::bytes buffer(reinterpret_cast<char*>(image_data), width * height * 4);
+        py::module Image = py::module::import("PIL.Image");
+
+        auto pil_image = Image.attr("frombytes")("RGBA", size, buffer, "raw", "BGRA");
+        auto info = pil_image.attr("info");
+        info["dpi"] = make_pair(int(dpix), int(dpiy));
+        delete image_data;
+
+        return pil_image;
+    }
+
+    size_t size() const
+    {
+        return this->num_pages;
+    }
+
+private:
+    struct TIFFDeleter
+    {
+        void operator()(TIFF* tiff)
+        {
+            TIFFClose(tiff);
+        }
+    };
+
+    Tiff(TIFF* document, stringstream* sstream):
+        doc(document), sstream(sstream)
+    {
+        _set_num_pages();
+    }
+
+    void _set_num_pages()
+    {
+        this->num_pages = 0;
+        auto doc = this->doc.get();
+
+        do
+        {
+            this->num_pages++;
+        } while (TIFFReadDirectory(doc));
+    }
+
+    unique_ptr<TIFF, TIFFDeleter> doc;
+    int num_pages = 0;
+    unique_ptr<stringstream> sstream;
+};
+
+
+PYBIND11_MODULE(tiffrender, m)
 {
-    auto tiff = reinterpret_cast<TIFF*>(_tiff);
-    TIFFSetDirectory(tiff, index);
+    using namespace pybind11::literals;
 
-    TIFFGetField(tiff, TIFFTAG_IMAGEWIDTH, width);
-    TIFFGetField(tiff, TIFFTAG_IMAGELENGTH, height);
-    TIFFGetField(tiff, TIFFTAG_XRESOLUTION, dpix);
-    TIFFGetField(tiff, TIFFTAG_YRESOLUTION, dpiy);
+    m.doc() = "TIFF rendering";
 
-    auto image_data = reinterpret_cast<uint32_t*>(_TIFFmalloc(*width * *height * 4));
-    TIFFReadRGBAImageOriented(tiff, *width, *height, image_data, 1, 0);
-    return image_data;
-}
+    const auto frombytes_docstring =
+R"(Opens a TIFF file using the raw bytes of the file.
 
-void delete_image_data(uint32_t* data)
-{
-    _TIFFfree(reinterpret_cast<void*>(data));
-}
+    Args:
+        bytes: The raw bytes of the TIFF file.
 
+    Returns:
+        A Tiff object
+
+    Raises:
+        InvalidArgument exception if the file is invalid, or if the file is password-locked.
+)";
+
+    const auto fromfile_docstring =
+R"(Opens a TIFF file given the file name.
+
+    Args:
+        filename: the filename to open.
+
+    Returns:
+        A Tiff object
+
+    Raises:
+        InvalidArgument exception if the file is invalid, or if the file is password-locked.
+)";
+
+    const auto render_page_docstring =
+R"(Renders a page of the TIFF file as a PIL image.
+
+    Args:
+        page_index: 0-based index of the page to render
+
+    Returns:
+        The PIL image, or None if unsuccessful.
+        The image can have mode 'L', 'RGB', or 'RGBA'
+)";
+
+    py::class_<Tiff>(m, "Tiff")
+        .def_static("frombytes", &Tiff::frombytes, frombytes_docstring, "bytes"_a)
+        .def_static("fromfile", &Tiff::fromfile, fromfile_docstring, "filename"_a)
+        .def("__len__", &Tiff::size)
+        .def("__enter__", &Tiff::__enter__)
+        .def("__exit__", &Tiff::__exit__)
+        .def("render_page", &Tiff::render_page, render_page_docstring, "page_index"_a);
 }
