@@ -10,11 +10,11 @@ class TiffTestCase(unittest.TestCase):
         self.assertEqual(len(doc), 1)
 
     def test_open_nonexisting_file(self):
-        with self.assertRaisesRegex(ValueError, 'invalid tiff file'):
+        with self.assertRaisesRegexp(ValueError, 'invalid tiff file'):
             doc = Tiff.fromfile('tests/assets/missing.tiff')
 
     def test_open_corrupted_file(self):
-        with self.assertRaisesRegex(ValueError, 'invalid tiff file'):
+        with self.assertRaisesRegexp(ValueError, 'invalid tiff file'):
             doc = Tiff.fromfile('tests/assets/corrupted.tif')
 
     def test_open_from_bytes(self):
@@ -25,7 +25,7 @@ class TiffTestCase(unittest.TestCase):
         self.assertEqual(len(doc), 1)
 
     def test_open_from_corrupted_bytes(self):
-        with self.assertRaisesRegex(ValueError, 'invalid tiff file'):
+        with self.assertRaisesRegexp(ValueError, 'invalid tiff file'):
             Tiff.frombytes(b'foo')
 
     def test_render_page(self):
@@ -40,7 +40,7 @@ class TiffTestCase(unittest.TestCase):
 
     def test_render_page_invalid_index(self):
         doc = Tiff.fromfile('tests/assets/multipage_tiff_example.tif')
-        with self.assertRaisesRegex(ValueError, 'page index out of range'):
+        with self.assertRaisesRegexp(ValueError, 'page index out of range'):
             doc.render_page(-1)
-        with self.assertRaisesRegex(ValueError, 'page index out of range'):
+        with self.assertRaisesRegexp(ValueError, 'page index out of range'):
             doc.render_page(20)

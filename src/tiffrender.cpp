@@ -43,7 +43,6 @@ public:
         sstream(move(other.sstream))
     {
         other.num_pages = 0;
-        other.doc = nullptr;
     }
 
     Tiff& __enter__()
@@ -178,4 +177,8 @@ R"(Renders a page of the TIFF file as a PIL image.
         .def("__enter__", &Tiff::__enter__)
         .def("__exit__", &Tiff::__exit__)
         .def("render_page", &Tiff::render_page, render_page_docstring, "page_index"_a);
+
+#ifdef VERSION_INFO
+    m.attr("__version__") = VERSION_INFO;
+#endif
 }
