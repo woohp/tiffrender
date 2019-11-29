@@ -22,7 +22,7 @@ public:
         if (!document)
             throw std::invalid_argument("invalid tiff file");
 
-        return Tiff(document, move(sstream));
+        return Tiff(document, sstream);
     }
 
     static Tiff fromfile(const string& filename)
@@ -38,7 +38,7 @@ public:
     Tiff(const Tiff& other) = delete;
 
     Tiff(Tiff&& other):
-        doc(move(other.doc)),
+        document(move(other.document)),
         num_pages(other.num_pages),
         sstream(move(other.sstream))
     {
@@ -52,20 +52,20 @@ public:
 
     void __exit__(py::object, py::object, py::object)
     {
-        this->doc.reset();
+        this->document.reset();
         this->sstream.reset();
         this->num_pages = 0;
     }
 
     py::object render_page(int page_index)
     {
-        if (!this->doc)
+        if (!this->document)
             throw std::runtime_error("Invalid tiff document.");
 
         if (page_index < 0 || page_index >= this->num_pages)
             throw std::invalid_argument("page index out of range");
 
-        auto doc = this->doc.get();
+        auto doc = this->document.get();
 
         TIFFSetDirectory(doc, page_index);
 
@@ -105,7 +105,7 @@ private:
     };
 
     Tiff(TIFF* document, stringstream* sstream):
-        doc(document), sstream(sstream)
+        document(document), sstream(sstream)
     {
         _set_num_pages();
     }
@@ -113,7 +113,7 @@ private:
     void _set_num_pages()
     {
         this->num_pages = 0;
-        auto doc = this->doc.get();
+        auto doc = this->document.get();
 
         do
         {
@@ -121,7 +121,7 @@ private:
         } while (TIFFReadDirectory(doc));
     }
 
-    unique_ptr<TIFF, TIFFDeleter> doc;
+    unique_ptr<TIFF, TIFFDeleter> document;
     int num_pages = 0;
     unique_ptr<stringstream> sstream;
 };

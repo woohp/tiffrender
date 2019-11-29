@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
@@ -31,6 +32,7 @@ ext_modules = [
             get_pybind_include(user=True),
         ],
         libraries=libraries,
+        library_dirs=['/usr/local/lib'],
         language='c++'
     ),
 ]
