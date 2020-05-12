@@ -84,7 +84,7 @@ public:
 
         auto pil_image = Image.attr("frombytes")("RGBA", size, buffer, "raw", "BGRA");
         auto info = pil_image.attr("info");
-        info["dpi"] = make_pair(int(dpix), int(dpiy));
+        info["dpi"] = make_pair(dpix, dpiy);
         delete[] image_data;
 
         return pil_image;
