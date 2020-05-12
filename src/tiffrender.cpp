@@ -73,8 +73,6 @@ public:
         float dpix, dpiy;
         TIFFGetField(doc, TIFFTAG_IMAGEWIDTH, &width);
         TIFFGetField(doc, TIFFTAG_IMAGELENGTH, &height);
-        TIFFGetField(doc, TIFFTAG_XRESOLUTION, &dpix);
-        TIFFGetField(doc, TIFFTAG_YRESOLUTION, &dpiy);
 
         auto image_data = new uint32_t[width * height];
         TIFFReadRGBAImageOriented(doc, width, height, image_data, 1, 0);
@@ -84,7 +82,8 @@ public:
 
         auto pil_image = Image.attr("frombytes")("RGBA", size, buffer, "raw", "BGRA");
         auto info = pil_image.attr("info");
-        info["dpi"] = make_pair(int(dpix), int(dpiy));
+        if (TIFFGetField(doc, TIFFTAG_XRESOLUTION, &dpix) && TIFFGetField(doc, TIFFTAG_YRESOLUTION, &dpiy))
+            info["dpi"] = make_pair(int(dpix), int(dpiy));
         delete[] image_data;
 
         return pil_image;

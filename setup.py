@@ -61,7 +61,7 @@ class BuildExt(build_ext):
 setup(
     name='tiffrender',
     description='Tiff Renderer',
-    version='0.3.1',
+    version='0.3.2',
     setup_requires=['pybind11>=2.2.1', 'Pillow>=4.3.0,<=6.2.2'],
     install_requires=['pybind11>=2.2.1', 'Pillow>=4.3.0,<=6.2.2'],
     ext_modules=ext_modules,
