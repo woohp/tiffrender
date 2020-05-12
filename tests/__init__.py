@@ -38,6 +38,10 @@ class TiffTestCase(unittest.TestCase):
         self.assertEqual(page.load()[100, 100], (255, 255, 255, 255))
         self.assertEqual(page.info['dpi'], (96, 96))
 
+    def test_render_weird_dpi_page(self):
+        doc = Tiff.fromfile('tests/assets/Liborio_Salomicon_scheletro_di_dromedario.tiff')
+        page = doc.render_page(0)
+
     def test_render_page_invalid_index(self):
         doc = Tiff.fromfile('tests/assets/multipage_tiff_example.tif')
         with self.assertRaisesRegexp(ValueError, 'page index out of range'):
