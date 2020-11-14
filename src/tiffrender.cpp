@@ -1,17 +1,14 @@
-#include <memory>
-#include <sstream>
 #include <iostream>
+#include <memory>
+#include <pybind11/pybind11.h>
+#include <sstream>
 #include <tiffio.h>
 #include <tiffio.hxx>
-#include <pybind11/pybind11.h>
 using namespace std;
 namespace py = pybind11;
 
-
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
-
-
 
 class Tiff
 {
@@ -42,10 +39,10 @@ public:
 
     Tiff(const Tiff& other) = delete;
 
-    Tiff(Tiff&& other):
-        document(move(other.document)),
-        num_pages(other.num_pages),
-        sstream(move(other.sstream))
+    Tiff(Tiff&& other)
+        : document(move(other.document))
+        , num_pages(other.num_pages)
+        , sstream(move(other.sstream))
     {
         other.num_pages = 0;
     }
@@ -108,8 +105,9 @@ private:
         }
     };
 
-    Tiff(TIFF* document, stringstream* sstream):
-        document(document), sstream(sstream)
+    Tiff(TIFF* document, stringstream* sstream)
+        : document(document)
+        , sstream(sstream)
     {
         _set_num_pages();
     }
@@ -130,7 +128,6 @@ private:
     unique_ptr<stringstream> sstream;
 };
 
-
 PYBIND11_MODULE(tiffrender, m)
 {
     using namespace pybind11::literals;
@@ -138,7 +135,7 @@ PYBIND11_MODULE(tiffrender, m)
     m.doc() = "TIFF rendering";
 
     const auto frombytes_docstring =
-R"(Opens a TIFF file using the raw bytes of the file.
+        R"(Opens a TIFF file using the raw bytes of the file.
 
     Args:
         bytes: The raw bytes of the TIFF file.
@@ -151,7 +148,7 @@ R"(Opens a TIFF file using the raw bytes of the file.
 )";
 
     const auto fromfile_docstring =
-R"(Opens a TIFF file given the file name.
+        R"(Opens a TIFF file given the file name.
 
     Args:
         filename: the filename to open.
@@ -164,7 +161,7 @@ R"(Opens a TIFF file given the file name.
 )";
 
     const auto render_page_docstring =
-R"(Renders a page of the TIFF file as a PIL image.
+        R"(Renders a page of the TIFF file as a PIL image.
 
     Args:
         page_index: 0-based index of the page to render
