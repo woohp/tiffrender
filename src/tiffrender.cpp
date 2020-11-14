@@ -8,6 +8,11 @@ using namespace std;
 namespace py = pybind11;
 
 
+#define STRINGIFY(x) #x
+#define MACRO_STRINGIFY(x) STRINGIFY(x)
+
+
+
 class Tiff
 {
 public:
@@ -178,6 +183,6 @@ R"(Renders a page of the TIFF file as a PIL image.
         .def("render_page", &Tiff::render_page, render_page_docstring, "page_index"_a);
 
 #ifdef VERSION_INFO
-    m.attr("__version__") = VERSION_INFO;
+    m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #endif
 }
