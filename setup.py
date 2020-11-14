@@ -1,13 +1,9 @@
 #!/usr/bin/env python
 from setuptools import setup, Extension
 from pybind11.setup_helpers import Pybind11Extension, build_ext
-import sys
 
 
 __version__ = '0.3.2'
-
-
-libraries = ['tiff', 'tiffxx']
 
 
 ext_modules = [
@@ -16,7 +12,7 @@ ext_modules = [
         [
             'src/tiffrender.cpp',
         ],
-        libraries=libraries,
+        libraries=['tiff', 'tiffxx'],
         library_dirs=['/usr/local/lib'],
         language='c++',
         define_macros=[('VERSION_INFO', __version__)],
