@@ -18,13 +18,13 @@ public:
         TIFFSetWarningHandler(nullptr);
         py::buffer_info info = bytes.request();
 
-        auto sstream = new stringstream;
+        auto sstream = make_unique<stringstream>();
         sstream->write(reinterpret_cast<char*>(info.ptr), info.size);
-        auto document = TIFFStreamOpen("file.tiff", static_cast<std::istream*>(sstream));
+        auto document = TIFFStreamOpen("file.tiff", reinterpret_cast<std::istream*>(sstream.get()));
         if (!document)
             throw std::invalid_argument("invalid tiff file");
 
-        return Tiff(document, sstream);
+        return Tiff(document, std::move(sstream));
     }
 
     static Tiff fromfile(const string& filename)
@@ -76,17 +76,16 @@ public:
         TIFFGetField(doc, TIFFTAG_IMAGEWIDTH, &width);
         TIFFGetField(doc, TIFFTAG_IMAGELENGTH, &height);
 
-        auto image_data = new uint32_t[width * height];
-        TIFFReadRGBAImageOriented(doc, width, height, image_data, 1, 0);
+        auto image_data = make_unique<uint32_t[]>(width * height);
+        TIFFReadRGBAImageOriented(doc, width, height, image_data.get(), 1, 0);
         auto size = make_pair(width, height);
-        py::bytes buffer(reinterpret_cast<char*>(image_data), width * height * 4);
+        py::bytes buffer(reinterpret_cast<char*>(image_data.get()), width * height * 4);
         py::module Image = py::module::import("PIL.Image");
 
         auto pil_image = Image.attr("frombytes")("RGBA", size, buffer, "raw", "BGRA");
         auto info = pil_image.attr("info");
         if (TIFFGetField(doc, TIFFTAG_XRESOLUTION, &dpix) && TIFFGetField(doc, TIFFTAG_YRESOLUTION, &dpiy))
             info["dpi"] = make_pair(int(dpix), int(dpiy));
-        delete[] image_data;
 
         return pil_image;
     }
@@ -105,9 +104,9 @@ private:
         }
     };
 
-    Tiff(TIFF* document, stringstream* sstream)
+    Tiff(TIFF* document, unique_ptr<stringstream>&& sstream)
         : document(document)
-        , sstream(sstream)
+        , sstream(move(sstream))
     {
         _set_num_pages();
     }
